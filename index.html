@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Online Flight Simulator</title>
+    <title>3D Flight Simulator - Bomb Drop</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #5ca0d3; font-family: 'Segoe UI', sans-serif; user-select: none; }
         #start-menu {
@@ -50,6 +50,26 @@
         #pause-screen h1 {
             font-size: 5rem; margin-bottom: 10px; letter-spacing: 15px; text-shadow: 2px 2px 10px rgba(0,0,0,0.8);
         }
+
+        /* ハンドルネーム入力用 */
+        #name-input {
+            padding: 12px; font-size: 1.2rem; border-radius: 8px; border: none;
+            margin-bottom: 20px; width: 250px; text-align: center; outline: none;
+            background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            font-family: inherit; font-weight: bold;
+        }
+
+        /* プレイヤーリストのスタイル */
+        #player-list {
+            position: absolute; top: 20px; right: 20px; color: #fff;
+            background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;
+            display: none; pointer-events: none; font-family: 'Segoe UI', sans-serif;
+            min-width: 160px; z-index: 100; backdrop-filter: blur(4px);
+        }
+        #player-list .title { font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 5px; margin-bottom: 8px; font-size: 1.1rem; }
+        #player-list ul { list-style: none; padding: 0; margin: 0; font-size: 0.95rem; }
+        #player-list li { margin: 4px 0; display: flex; align-items: center;}
+        .color-box { width: 14px; height: 14px; display: inline-block; margin-right: 8px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.7); }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -59,6 +79,7 @@
 <div id="start-menu">
     <h1 style="font-size: 3rem; margin-bottom: 10px;">Infinite Flight</h1>
     <p style="margin-bottom: 30px;">戦闘機は[B]キーで爆弾を投下できます</p>
+    <input type="text" id="name-input" placeholder="ハンドルネームを入力" maxlength="15">
     <div class="option" onclick="startGame('airliner')">✈️ ボーイング747 (旅客機)</div>
     <div class="option" onclick="startGame('fighter')">🚀 F-15 (戦闘機)</div>
     <div class="option" onclick="startGame('stunt')">🛩️ セスナ (軽飛行機)</div>
@@ -73,6 +94,11 @@
 <div id="pause-screen">
     <h1>PAUSED</h1>
     <p style="font-size: 1.2rem;">[P]キーを押して再開</p>
+</div>
+
+<div id="player-list">
+    <div class="title">📡 レーダー応答</div>
+    <ul id="player-ul"></ul>
 </div>
 
 <div id="stall-warning">STALL</div>
@@ -111,6 +137,8 @@
     let selectedType = '';
     let particles = []; 
     let gearDown = true; 
+    let myName = "";
+    let lastListUpdate = 0;
 
     // 爆弾用の配列とクールダウン
     let bombs = [];
@@ -134,12 +162,19 @@
     const cloudData = [];
     let dummy = new THREE.Object3D();
 
+    // 初期名前をセット
+    document.getElementById('name-input').value = "Pilot_" + Math.floor(Math.random() * 1000);
+
     function startGame(type) {
+        let inputName = document.getElementById('name-input').value.trim();
+        myName = inputName !== "" ? inputName : "Guest";
+
         selectedType = type;
         gameState = 'playing';
         document.getElementById('start-menu').style.display = 'none';
         document.getElementById('ui').style.display = 'block';
         document.getElementById('controls').style.display = 'block';
+        document.getElementById('player-list').style.display = 'block';
         initScene(type);
         initNetwork();
         animate();
@@ -206,7 +241,7 @@
 
         initCityAndClouds();
 
-        localPlane = createModel(type, myColor);
+        localPlane = createModel(type, myColor, myName);
         scene.add(localPlane);
         localPlane.add(camera);
         
@@ -322,9 +357,36 @@
         scene.add(cloudMesh);
     }
 
-    function createModel(type, colorHex) {
+    function makeTextSprite(message) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+        
+        context.font = "Bold 26px 'Segoe UI', sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        
+        context.lineWidth = 4;
+        context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+        context.strokeText(message, canvas.width/2, canvas.height/2);
+        context.fillStyle = "rgba(255, 255, 255, 1.0)";
+        context.fillText(message, canvas.width/2, canvas.height/2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true }); 
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(15, 3.75, 1); 
+        return sprite;
+    }
+
+    function createModel(type, colorHex, playerName) {
         const group = new THREE.Group();
         const tailColor = colorHex !== undefined ? colorHex : myColor;
+
+        group.playerName = playerName || "Unknown";
+        group.playerColor = tailColor;
 
         if (type === 'airliner') {
             const whiteMat = new THREE.MeshStandardMaterial({color: 0xe0e0e0, roughness: 0.3});
@@ -384,6 +446,14 @@
             const wing = new THREE.Mesh(new THREE.BoxGeometry(12, 0.2, 2), whiteMat); wing.position.y = 0.8; group.add(wing);
             const tail = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 1.5), customTailMat); tail.position.set(0, 1, 2.5); group.add(tail);
         }
+
+        // 名前のスプライトを追加
+        if (playerName) {
+            const nameSprite = makeTextSprite(playerName);
+            nameSprite.position.y = (type === 'airliner') ? 10 : 5; 
+            group.add(nameSprite);
+        }
+
         return group;
     }
 
@@ -394,7 +464,7 @@
                 gameChannel = supabaseClient.channel('room1').on('broadcast', {event:'move'}, (p) => {
                     const d = p.payload;
                     if(!remotePlanes[d.id]) {
-                        remotePlanes[d.id] = createModel(d.type, d.color);
+                        remotePlanes[d.id] = createModel(d.type, d.color, d.name);
                         scene.add(remotePlanes[d.id]);
                         const marker = new THREE.Mesh(new THREE.OctahedronGeometry(150, 0), new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true}));
                         marker.name = "radarMarker"; marker.visible = false;
@@ -446,6 +516,7 @@
         camera.lookAt(localPlane.position);
         document.getElementById('ui').style.display = 'none';
         document.getElementById('controls').style.display = 'none';
+        document.getElementById('player-list').style.display = 'none';
         setTimeout(() => { document.getElementById('game-over').style.display = 'flex'; }, 1000);
     }
 
@@ -529,6 +600,20 @@
         document.getElementById('players').innerText = playerCount;
 
         if(gameState === 'playing') {
+            // プレイヤーリストのUI更新（1秒に1回）
+            if (now - lastListUpdate > 1000) {
+                lastListUpdate = now;
+                let listHTML = `<li><span class="color-box" style="background:#${myColor.toString(16).padStart(6, '0')}"></span> ${myName} (あなた)</li>`;
+                for (const id in remotePlanes) {
+                    if (now - remotePlanes[id].lastSeen <= 5000) {
+                        let pName = remotePlanes[id].playerName || "Unknown";
+                        let pColor = remotePlanes[id].playerColor || 0xffffff;
+                        listHTML += `<li><span class="color-box" style="background:#${pColor.toString(16).padStart(6, '0')}"></span> ${pName}</li>`;
+                    }
+                }
+                document.getElementById('player-ul').innerHTML = listHTML;
+            }
+
             // パーティクル（爆発）のアニメーション
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
@@ -661,7 +746,7 @@
             if(Date.now() - lastSync > 100 && gameChannel) {
                 lastSync = Date.now();
                 gameChannel.send({type:'broadcast', event:'move', payload:{
-                    id:myId, type:selectedType, x:localPlane.position.x, y:localPlane.position.y, z:localPlane.position.z,
+                    id:myId, type:selectedType, name:myName, x:localPlane.position.x, y:localPlane.position.y, z:localPlane.position.z,
                     qx:localPlane.quaternion.x, qy:localPlane.quaternion.y, qz:localPlane.quaternion.z, qw:localPlane.quaternion.w,
                     color: myColor
                 }});
@@ -673,4 +758,3 @@
 </script>
 </body>
 </html>
-
