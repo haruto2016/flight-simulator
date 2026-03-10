@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Flight Simulator - Bomb Drop</title>
+    <title>3D Flight Simulator - Multiplayer</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #5ca0d3; font-family: 'Segoe UI', sans-serif; user-select: none; }
         #start-menu {
@@ -124,8 +124,9 @@
 </div>
 
 <script>
-    const SUPABASE_URL = "https://jyuwcmasqhureaphziwl.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_P8iXfARkpljKSDi6cbAebA_a6-wrnV5";
+    // 指定された新しいSupabaseの認証情報
+    const SUPABASE_URL = "https://scqzaquenmbykqloyfev.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_Vev6_T3Vt-eTCPRWFNb6Yw_2Gy6YBl_";
 
     let scene, camera, renderer, localPlane;
     let remotePlanes = {};
@@ -141,12 +142,12 @@
     let gearDown = true; 
     let myName = "";
     let lastListUpdate = 0;
-    let targetPlayerId = null; // ターゲット機能用
+    let targetPlayerId = null; 
 
     // 爆弾用の配列とクールダウン
     let bombs = [];
     let lastBombTime = 0;
-    const BOMB_COOLDOWN = 300; // 0.3秒に1発投下可能
+    const BOMB_COOLDOWN = 300; 
 
     let ground, groundGeo, water;
     const GROUND_SIZE = 24000;
@@ -285,7 +286,7 @@
                     gearText.style.color = gearDown ? '#00ff00' : '#ffaa00';
                 }
                 if(key === 'b') {
-                    dropBomb(); // 爆弾投下
+                    dropBomb();
                 }
             }
         };
@@ -297,36 +298,30 @@
         };
     }
 
-    // 爆弾を投下する関数
     function dropBomb() {
-        if (selectedType !== 'fighter') return; // 戦闘機以外は投下できない
+        if (selectedType !== 'fighter') return; 
         
         const now = Date.now();
-        if (now - lastBombTime < BOMB_COOLDOWN) return; // クールダウン中は無視
+        if (now - lastBombTime < BOMB_COOLDOWN) return; 
         lastBombTime = now;
 
-        // 爆弾の見た目を作成 (オリーブドラブ色の弾体)
         const bombGeo = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
         const bombMat = new THREE.MeshStandardMaterial({ color: 0x3b4d2e, roughness: 0.7 });
         const bombMesh = new THREE.Mesh(bombGeo, bombMat);
         
-        // 投下位置を機体の少し下に設定
         let dropPos = localPlane.position.clone();
-        let offset = new THREE.Vector3(0, -1.5, 0); // 機体のローカル座標で真下
+        let offset = new THREE.Vector3(0, -1.5, 0); 
         offset.applyQuaternion(localPlane.quaternion);
         dropPos.add(offset);
         
         bombMesh.position.copy(dropPos);
         bombMesh.quaternion.copy(localPlane.quaternion);
-        bombMesh.rotateX(Math.PI / 2); // 進行方向に向ける
+        bombMesh.rotateX(Math.PI / 2); 
 
         scene.add(bombMesh);
 
-        // 爆弾の初速（機体の進行方向ベクトル × 現在のスピード）
         const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(localPlane.quaternion);
         const velocity = direction.multiplyScalar(speed); 
-        
-        // 投下時の勢い（少し下向きに射出する感じ）
         velocity.y -= 0.5;
 
         bombs.push({
@@ -446,7 +441,6 @@
             const hTail = new THREE.Mesh(new THREE.BoxGeometry(8, 0.1, 4), miliGray);
             hTail.position.set(0, 0, 7); group.add(hTail);
             
-            // 翼の下のミサイル(装飾)
             const missile = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4, 8), new THREE.MeshStandardMaterial({color:0xffffff}));
             missile.rotation.x = Math.PI/2; missile.position.set(4, -0.5, 2); group.add(missile);
             const missile2 = missile.clone(); missile2.position.set(-4, -0.5, 2); group.add(missile2);
@@ -459,7 +453,6 @@
             const tail = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 1.5), customTailMat); tail.position.set(0, 1, 2.5); group.add(tail);
         }
 
-        // 名前のスプライトを追加
         if (playerName) {
             const nameSprite = makeTextSprite(playerName);
             nameSprite.position.y = (type === 'airliner') ? 10 : 5; 
@@ -475,6 +468,9 @@
                 supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 gameChannel = supabaseClient.channel('room1').on('broadcast', {event:'move'}, (p) => {
                     const d = p.payload;
+                    
+                    if (d.id === myId) return; // 自分のエコーバックは無視
+
                     if(!remotePlanes[d.id]) {
                         remotePlanes[d.id] = createModel(d.type, d.color, d.name);
                         scene.add(remotePlanes[d.id]);
@@ -603,17 +599,16 @@
         for (const id in remotePlanes) {
             if (now - remotePlanes[id].lastSeen > 5000) {
                 scene.remove(remotePlanes[id]); delete remotePlanes[id];
-                if (targetPlayerId === id) targetPlayerId = null; // ターゲットがいなくなったら解除
+                if (targetPlayerId === id) targetPlayerId = null;
             } else {
                 playerCount++;
                 const marker = remotePlanes[id].getObjectByName("radarMarker");
                 if (marker) {
-                    // ターゲットされているプレイヤーは常に黄色のマーカーを表示
                     if (targetPlayerId === id) {
                         marker.visible = true;
                         marker.material.color.setHex(0xffcc00);
                     } else {
-                        marker.visible = keys.r; // Rキーで探索中の場合は赤
+                        marker.visible = keys.r;
                         marker.material.color.setHex(0xff0000);
                     }
                 }
@@ -622,7 +617,6 @@
         document.getElementById('players').innerText = playerCount;
 
         if(gameState === 'playing') {
-            // プレイヤーリストのUI更新（1秒に1回 または ターゲット変更時）
             if (now - lastListUpdate > 1000) {
                 lastListUpdate = now;
                 let listHTML = `<li onclick="setTargetPlayer(null)"><span class="color-box" style="background:#${myColor.toString(16).padStart(6, '0')}"></span> ${myName} (あなた)</li>`;
@@ -637,7 +631,6 @@
                 document.getElementById('player-ul').innerHTML = listHTML;
             }
 
-            // パーティクル（爆発）のアニメーション
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 let positions = p.mesh.geometry.attributes.position.array;
@@ -653,23 +646,19 @@
                 if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
             }
 
-            // 投下された爆弾の物理演算と当たり判定
             for (let i = bombs.length - 1; i >= 0; i--) {
                 let b = bombs[i];
                 
-                b.velocity.y -= 0.08; // 重力で落下加速
+                b.velocity.y -= 0.08; 
                 b.mesh.position.add(b.velocity);
                 
-                // 落ちていく方向（速度ベクトル）に弾の頭を向ける
                 b.mesh.lookAt(b.mesh.position.clone().add(b.velocity));
                 b.mesh.rotateX(Math.PI/2); 
 
-                // 地形・水面との衝突判定
                 let groundH = getGroundHeight(b.mesh.position.x, b.mesh.position.z);
                 let surfaceH = Math.max(groundH, WATER_LEVEL);
 
                 if (b.mesh.position.y <= surfaceH + 1) {
-                    // 衝突したら爆発
                     createExplosion(b.mesh.position);
                     scene.remove(b.mesh);
                     bombs.splice(i, 1);
@@ -684,13 +673,11 @@
             
             let euler = new THREE.Euler().setFromQuaternion(localPlane.quaternion, 'YXZ');
 
-            // 地上にいるかどうかの判定を先に計算
             let groundH = getGroundHeight(localPlane.position.x, localPlane.position.z);
             let surfaceH = Math.max(groundH, WATER_LEVEL);
             let isGrounded = localPlane.position.y <= surfaceH + 2.6;
 
             let gravityEffect = euler.x * maxSpeed * 0.5; 
-            // 地上にいる時は機首の傾きによる勝手な前進(重力効果)を無効化
             if (isGrounded) {
                 gravityEffect = 0;
             }
@@ -698,7 +685,6 @@
             let targetSpeed = (throttle/100 * maxSpeed) + gravityEffect;
             if(targetSpeed < 0) targetSpeed = 0; 
 
-            // 地上でスロットルが0の時はブレーキをかけて完全に止まる
             if (isGrounded && throttle === 0) {
                 speed *= 0.95; 
                 if (speed < 0.01) speed = 0;
@@ -722,7 +708,6 @@
                 stallWarning.style.display = 'none';
             }
 
-            // 速度に応じた舵の効き具合（地上で止まっている時は動かないようにする）
             let controlEffect = 1.0;
             if (isGrounded) {
                 controlEffect = Math.max(0, Math.min(1.0, speed / 5.0));
