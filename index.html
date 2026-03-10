@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Online Flight Simulator - forFree</title>
+    <title>3D Flight Simulator - Bomb Drop</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #5ca0d3; font-family: 'Segoe UI', sans-serif; user-select: none; }
         #start-menu {
@@ -39,6 +39,17 @@
             color: #ff2222; font-size: 5rem; font-weight: bold; font-style: italic; letter-spacing: 5px;
             text-shadow: 0 0 20px #ff0000, 2px 2px 0 #000; z-index: 100; pointer-events: none;
         }
+
+        /* ポーズ画面のスタイル */
+        #pause-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            flex-direction: column; align-items: center; justify-content: center;
+            z-index: 250; color: white; text-align: center;
+        }
+        #pause-screen h1 {
+            font-size: 5rem; margin-bottom: 10px; letter-spacing: 15px; text-shadow: 2px 2px 10px rgba(0,0,0,0.8);
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -59,6 +70,11 @@
     <div class="option" onclick="location.reload()">🔄 リトライする</div>
 </div>
 
+<div id="pause-screen">
+    <h1>PAUSED</h1>
+    <p style="font-size: 1.2rem;">[P]キーを押して再開</p>
+</div>
+
 <div id="stall-warning">STALL</div>
 
 <div id="controls">
@@ -67,6 +83,7 @@
     <span style="color: #ffcc00; font-weight: bold;">[G] ギア(車輪) 出し入れ</span><br>
     <span style="color: #ff33aa; font-weight: bold;">[B] 爆弾投下 (戦闘機のみ)</span><br>
     <span style="color: #ff5555; font-weight: bold;">[R] 押しっぱなしで他機を探索</span><br>
+    <span style="color: #ffffff; font-weight: bold;">[P] ポーズ</span><br>
     [マウス] 操縦（傾けて旋回）
 </div>
 
@@ -203,6 +220,16 @@
             let key = e.key.toLowerCase();
             if(key in keys) keys[key] = true; 
             
+            if(key === 'p') {
+                if(gameState === 'playing') {
+                    gameState = 'paused';
+                    document.getElementById('pause-screen').style.display = 'flex';
+                } else if(gameState === 'paused') {
+                    gameState = 'playing';
+                    document.getElementById('pause-screen').style.display = 'none';
+                }
+            }
+
             if(gameState === 'playing') {
                 if(key === 'g') {
                     gearDown = !gearDown;
@@ -488,45 +515,6 @@
     function animate() {
         requestAnimationFrame(animate);
 
-        // パーティクル（爆発）のアニメーション
-        for (let i = particles.length - 1; i >= 0; i--) {
-            let p = particles[i];
-            let positions = p.mesh.geometry.attributes.position.array;
-            for (let j = 0; j < positions.length / 3; j++) {
-                positions[j * 3] += p.velocities[j].x;
-                positions[j * 3 + 1] += p.velocities[j].y;
-                positions[j * 3 + 2] += p.velocities[j].z;
-                p.velocities[j].y -= 0.2; 
-            }
-            p.mesh.geometry.attributes.position.needsUpdate = true;
-            p.life -= 0.02; p.mesh.material.opacity = p.life;
-            if (p.life < 0.5) p.mesh.material.color.setHex(0x333333);
-            if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
-        }
-
-        // 投下された爆弾の物理演算と当たり判定
-        for (let i = bombs.length - 1; i >= 0; i--) {
-            let b = bombs[i];
-            
-            b.velocity.y -= 0.08; // 重力で落下加速
-            b.mesh.position.add(b.velocity);
-            
-            // 落ちていく方向（速度ベクトル）に弾の頭を向ける
-            b.mesh.lookAt(b.mesh.position.clone().add(b.velocity));
-            b.mesh.rotateX(Math.PI/2); 
-
-            // 地形・水面との衝突判定
-            let groundH = getGroundHeight(b.mesh.position.x, b.mesh.position.z);
-            let surfaceH = Math.max(groundH, WATER_LEVEL);
-
-            if (b.mesh.position.y <= surfaceH + 1) {
-                // 衝突したら爆発
-                createExplosion(b.mesh.position);
-                scene.remove(b.mesh);
-                bombs.splice(i, 1);
-            }
-        }
-
         let playerCount = 1;
         const now = Date.now();
         for (const id in remotePlanes) {
@@ -541,6 +529,45 @@
         document.getElementById('players').innerText = playerCount;
 
         if(gameState === 'playing') {
+            // パーティクル（爆発）のアニメーション
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                let positions = p.mesh.geometry.attributes.position.array;
+                for (let j = 0; j < positions.length / 3; j++) {
+                    positions[j * 3] += p.velocities[j].x;
+                    positions[j * 3 + 1] += p.velocities[j].y;
+                    positions[j * 3 + 2] += p.velocities[j].z;
+                    p.velocities[j].y -= 0.2; 
+                }
+                p.mesh.geometry.attributes.position.needsUpdate = true;
+                p.life -= 0.02; p.mesh.material.opacity = p.life;
+                if (p.life < 0.5) p.mesh.material.color.setHex(0x333333);
+                if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+            }
+
+            // 投下された爆弾の物理演算と当たり判定
+            for (let i = bombs.length - 1; i >= 0; i--) {
+                let b = bombs[i];
+                
+                b.velocity.y -= 0.08; // 重力で落下加速
+                b.mesh.position.add(b.velocity);
+                
+                // 落ちていく方向（速度ベクトル）に弾の頭を向ける
+                b.mesh.lookAt(b.mesh.position.clone().add(b.velocity));
+                b.mesh.rotateX(Math.PI/2); 
+
+                // 地形・水面との衝突判定
+                let groundH = getGroundHeight(b.mesh.position.x, b.mesh.position.z);
+                let surfaceH = Math.max(groundH, WATER_LEVEL);
+
+                if (b.mesh.position.y <= surfaceH + 1) {
+                    // 衝突したら爆発
+                    createExplosion(b.mesh.position);
+                    scene.remove(b.mesh);
+                    bombs.splice(i, 1);
+                }
+            }
+
             if(keys.w) throttle += 0.5; if(keys.s) throttle -= 0.5;
             throttle = Math.max(0, Math.min(100, throttle));
             
@@ -646,4 +673,3 @@
 </script>
 </body>
 </html>
-
