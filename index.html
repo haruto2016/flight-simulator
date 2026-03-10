@@ -684,14 +684,27 @@
             
             let euler = new THREE.Euler().setFromQuaternion(localPlane.quaternion, 'YXZ');
 
+            // 地上にいるかどうかの判定を先に計算
+            let groundH = getGroundHeight(localPlane.position.x, localPlane.position.z);
+            let surfaceH = Math.max(groundH, WATER_LEVEL);
+            let isGrounded = localPlane.position.y <= surfaceH + 2.6;
+
             let gravityEffect = euler.x * maxSpeed * 0.5; 
+            // 地上にいる時は機首の傾きによる勝手な前進(重力効果)を無効化
+            if (isGrounded) {
+                gravityEffect = 0;
+            }
+
             let targetSpeed = (throttle/100 * maxSpeed) + gravityEffect;
             if(targetSpeed < 0) targetSpeed = 0; 
 
-            speed += (targetSpeed - speed) * 0.03;
-
-            let groundH = getGroundHeight(localPlane.position.x, localPlane.position.z);
-            let surfaceH = Math.max(groundH, WATER_LEVEL);
+            // 地上でスロットルが0の時はブレーキをかけて完全に止まる
+            if (isGrounded && throttle === 0) {
+                speed *= 0.95; 
+                if (speed < 0.01) speed = 0;
+            } else {
+                speed += (targetSpeed - speed) * 0.03;
+            }
 
             let isStalling = false;
             if (localPlane.position.y > surfaceH + 5 && speed < stallSpeed && euler.x < 0.2) {
@@ -709,23 +722,28 @@
                 stallWarning.style.display = 'none';
             }
 
-            let pitchInput = mouseY * 0.02;
+            // 速度に応じた舵の効き具合（地上で止まっている時は動かないようにする）
+            let controlEffect = 1.0;
+            if (isGrounded) {
+                controlEffect = Math.max(0, Math.min(1.0, speed / 5.0));
+            }
+
+            let pitchInput = mouseY * 0.02 * controlEffect;
             if (isStalling && pitchInput < 0) pitchInput *= 0.1; 
             euler.x += pitchInput; 
             euler.x = Math.max(-0.8, Math.min(0.8, euler.x));
             
-            let targetRoll = -mouseX * 1.0; 
+            let targetRoll = -mouseX * 1.0 * controlEffect; 
             euler.z += (targetRoll - euler.z) * 0.05; 
             
             let yawDelta = 0;
-            if (keys.a) yawDelta += 0.015;
-            if (keys.d) yawDelta -= 0.015;
+            if (keys.a) yawDelta += 0.015 * controlEffect;
+            if (keys.d) yawDelta -= 0.015 * controlEffect;
             yawDelta += Math.sin(euler.z) * 0.02; 
             euler.y += yawDelta;
             
             localPlane.quaternion.setFromEuler(euler);
 
-            let isGrounded = localPlane.position.y <= surfaceH + 2.6;
             if (isGrounded && surfaceH <= 1 && surfaceH === groundH && gearDown) {
                 let gEuler = new THREE.Euler().setFromQuaternion(localPlane.quaternion, 'YXZ');
                 if (gEuler.x < 0) gEuler.x = 0; 
