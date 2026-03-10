@@ -63,13 +63,15 @@
         #player-list {
             position: absolute; top: 20px; right: 20px; color: #fff;
             background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;
-            display: none; pointer-events: none; font-family: 'Segoe UI', sans-serif;
+            display: none; pointer-events: auto; font-family: 'Segoe UI', sans-serif;
             min-width: 160px; z-index: 100; backdrop-filter: blur(4px);
         }
         #player-list .title { font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 5px; margin-bottom: 8px; font-size: 1.1rem; }
         #player-list ul { list-style: none; padding: 0; margin: 0; font-size: 0.95rem; }
-        #player-list li { margin: 4px 0; display: flex; align-items: center;}
+        #player-list li { margin: 4px 0; display: flex; align-items: center; cursor: pointer; padding: 4px; border-radius: 4px; transition: background 0.2s; }
+        #player-list li:hover { background: rgba(255,255,255,0.2); }
         .color-box { width: 14px; height: 14px; display: inline-block; margin-right: 8px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.7); }
+        .targeted-name { color: #ffcc00; font-weight: bold; text-shadow: 0 0 5px #ffaa00; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -139,6 +141,7 @@
     let gearDown = true; 
     let myName = "";
     let lastListUpdate = 0;
+    let targetPlayerId = null; // ターゲット機能用
 
     // 爆弾用の配列とクールダウン
     let bombs = [];
@@ -164,6 +167,15 @@
 
     // 初期名前をセット
     document.getElementById('name-input').value = "Pilot_" + Math.floor(Math.random() * 1000);
+
+    function setTargetPlayer(id) {
+        if (targetPlayerId === id) {
+            targetPlayerId = null; // もう一度クリックで解除
+        } else {
+            targetPlayerId = id;
+        }
+        lastListUpdate = 0; // すぐにリストの見た目を更新させる
+    }
 
     function startGame(type) {
         let inputName = document.getElementById('name-input').value.trim();
@@ -591,24 +603,35 @@
         for (const id in remotePlanes) {
             if (now - remotePlanes[id].lastSeen > 5000) {
                 scene.remove(remotePlanes[id]); delete remotePlanes[id];
+                if (targetPlayerId === id) targetPlayerId = null; // ターゲットがいなくなったら解除
             } else {
                 playerCount++;
                 const marker = remotePlanes[id].getObjectByName("radarMarker");
-                if (marker) marker.visible = keys.r;
+                if (marker) {
+                    // ターゲットされているプレイヤーは常に黄色のマーカーを表示
+                    if (targetPlayerId === id) {
+                        marker.visible = true;
+                        marker.material.color.setHex(0xffcc00);
+                    } else {
+                        marker.visible = keys.r; // Rキーで探索中の場合は赤
+                        marker.material.color.setHex(0xff0000);
+                    }
+                }
             }
         }
         document.getElementById('players').innerText = playerCount;
 
         if(gameState === 'playing') {
-            // プレイヤーリストのUI更新（1秒に1回）
+            // プレイヤーリストのUI更新（1秒に1回 または ターゲット変更時）
             if (now - lastListUpdate > 1000) {
                 lastListUpdate = now;
-                let listHTML = `<li><span class="color-box" style="background:#${myColor.toString(16).padStart(6, '0')}"></span> ${myName} (あなた)</li>`;
+                let listHTML = `<li onclick="setTargetPlayer(null)"><span class="color-box" style="background:#${myColor.toString(16).padStart(6, '0')}"></span> ${myName} (あなた)</li>`;
                 for (const id in remotePlanes) {
                     if (now - remotePlanes[id].lastSeen <= 5000) {
                         let pName = remotePlanes[id].playerName || "Unknown";
                         let pColor = remotePlanes[id].playerColor || 0xffffff;
-                        listHTML += `<li><span class="color-box" style="background:#${pColor.toString(16).padStart(6, '0')}"></span> ${pName}</li>`;
+                        let targetClass = targetPlayerId === id ? 'targeted-name' : '';
+                        listHTML += `<li onclick="setTargetPlayer('${id}')"><span class="color-box" style="background:#${pColor.toString(16).padStart(6, '0')}"></span> <span class="${targetClass}">${pName}</span></li>`;
                     }
                 }
                 document.getElementById('player-ul').innerHTML = listHTML;
