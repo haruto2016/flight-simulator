@@ -66,6 +66,8 @@ class Aircraft {
                 this.rollSpeedMultiplier = 3.5; // Very agile
                 this.pitchSpeedMultiplier = 2.5;
                 this.engineCount = 1;
+                this.cameraChaseOffset = new THREE.Vector3(0, 5, 30);
+                this.cameraCockpitOffset = new THREE.Vector3(0, 1.2, -2);
                 break;
             case 'boeing':
                 this.mass = 300000;
@@ -75,9 +77,12 @@ class Aircraft {
                 this.liftCoeff = 1.5;
                 this.maxSpeed = 260;
                 this.stallSpeed = 65;
+                this.stallSpeed = 65;
                 this.rollSpeedMultiplier = 0.3; // Very heavy/slow
                 this.pitchSpeedMultiplier = 0.4;
                 this.engineCount = 4;
+                this.cameraChaseOffset = new THREE.Vector3(0, 15, 60);
+                this.cameraCockpitOffset = new THREE.Vector3(0, 3, -18);
                 break;
             case 'cessna':
             default:
@@ -88,9 +93,12 @@ class Aircraft {
                 this.liftCoeff = 1.2;
                 this.maxSpeed = 150;
                 this.stallSpeed = 30;
+                this.stallSpeed = 30;
                 this.rollSpeedMultiplier = 1.0;
                 this.pitchSpeedMultiplier = 1.0;
                 this.engineCount = 1;
+                this.cameraChaseOffset = null; // Use default
+                this.cameraCockpitOffset = null; // Use default
                 break;
         }
 
@@ -252,11 +260,12 @@ class Aircraft {
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         this.model.add(body);
 
-        const canopyGeo = new THREE.CapsuleGeometry(0.6, 2, 4, 8);
-        canopyGeo.rotateX(Math.PI / 2);
+        // canopy - use scaled sphere instead of Capsule
+        const canopyGeo = new THREE.SphereGeometry(0.8, 16, 16);
         const canopyMat = new THREE.MeshPhongMaterial({ color: 0x111111, transparent: true, opacity: 0.8 });
         const canopy = new THREE.Mesh(canopyGeo, canopyMat);
         canopy.position.set(0, 0.5, -2);
+        canopy.scale.set(0.7, 0.7, 2.5);
         this.model.add(canopy);
 
         const wingShape = new THREE.Shape();
@@ -338,9 +347,10 @@ class Aircraft {
         vStab.position.set(0, 4, 25);
         this.model.add(vStab);
 
-        const humpGeo = new THREE.CapsuleGeometry(2.8, 10, 8, 16);
-        humpGeo.rotateX(Math.PI / 2);
+        // hump - use scaled sphere instead of Capsule
+        const humpGeo = new THREE.SphereGeometry(3, 16, 16);
         const hump = new THREE.Mesh(humpGeo, bodyMat);
+        hump.scale.set(1, 1, 3);
         hump.position.set(0, 1.2, -12);
         this.model.add(hump);
 

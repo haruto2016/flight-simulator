@@ -378,12 +378,11 @@
         switch (cameraMode) {
             case 'chase': {
                 // 機体の後ろ上方から追従
-                const backUp = aircraft.position.clone()
-                    .add(forward.clone().multiplyScalar(15))    // 少し後方
-                    .add(up.clone().multiplyScalar(6));         // 少し上方
+                const chaseOffset = aircraft.cameraChaseOffset || new THREE.Vector3(0, 5, 20);
                 const behind = aircraft.position.clone()
-                    .sub(forward.clone().multiplyScalar(25))
-                    .add(new THREE.Vector3(0, 8, 0));
+                    .add(new THREE.Vector3(0, chaseOffset.y, chaseOffset.z).applyQuaternion(aircraft.quaternion));
+                const backUp = aircraft.position.clone()
+                    .add(new THREE.Vector3(0, chaseOffset.y * 0.5, chaseOffset.z * -0.5).applyQuaternion(aircraft.quaternion));
 
                 targetPos = behind;
                 targetLookAt = backUp;
@@ -391,11 +390,11 @@
             }
             case 'cockpit': {
                 // コックピット視点
+                const cockOffset = aircraft.cameraCockpitOffset || new THREE.Vector3(0, 1.2, -2);
                 targetPos = aircraft.position.clone()
-                    .add(forward.clone().multiplyScalar(-1))
-                    .add(up.clone().multiplyScalar(1.2));
+                    .add(cockOffset.clone().applyQuaternion(aircraft.quaternion));
                 targetLookAt = aircraft.position.clone()
-                    .add(forward.clone().multiplyScalar(100));
+                    .add(new THREE.Vector3(0, cockOffset.y, -100).applyQuaternion(aircraft.quaternion));
                 break;
             }
             case 'free': {
