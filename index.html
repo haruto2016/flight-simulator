@@ -28,6 +28,14 @@
             <div class="menu-options">
                 <button id="btn-start" class="menu-btn">フライト開始</button>
                 <div class="settings-group">
+                    <label>機体</label>
+                    <select id="aircraft-select">
+                        <option value="cessna" selected>セスナ (低速・安定)</option>
+                        <option value="fighter">戦闘機 (超高速・高機動)</option>
+                        <option value="boeing">ボーイング747 (巨大・鈍重)</option>
+                    </select>
+                </div>
+                <div class="settings-group">
                     <label>天候</label>
                     <select id="weather-select">
                         <option value="clear">晴天</option>
@@ -173,13 +181,13 @@
     <canvas id="game-canvas"></canvas>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="sky.js?v=5"></script>
-    <script src="terrain.js?v=5"></script>
-    <script src="aircraft.js?v=5"></script>
-    <script src="controls.js?v=5"></script>
-    <script src="hud.js?v=5"></script>
+    <script src="sky.js?v=6"></script>
+    <script src="terrain.js?v=6"></script>
+    <script src="aircraft.js?v=6"></script>
+    <script src="controls.js?v=6"></script>
+    <script src="hud.js?v=6"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="multiplayer.js?v=5"></script>
-    <script src="main.js?v=5"></script>
+    <script src="multiplayer.js?v=6"></script>
+    <script src="main.js?v=6"></script>
 </body>
 </html>

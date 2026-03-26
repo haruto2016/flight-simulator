@@ -118,6 +118,7 @@
     function startGame() {
         const weather = document.getElementById('weather-select').value;
         const timeOfDay = document.getElementById('time-select').value;
+        const planeType = document.getElementById('aircraft-select').value;
 
         startMenu.style.display = 'none';
         hud.style.display = '';
@@ -136,6 +137,7 @@
         terrainManager.init();
 
         aircraft = new Aircraft(scene);
+        aircraft.setType(planeType);
         aircraft.init();
 
         // マルチプレイヤーの再設定・接続

@@ -40,6 +40,61 @@ class Aircraft {
 
         // Propeller spin
         this.propAngle = 0;
+        
+        this.type = 'cessna';
+        this.rollSpeedMultiplier = 1.0;
+        this.pitchSpeedMultiplier = 1.0;
+        this.engineCount = 1;
+    }
+
+    setType(type) {
+        this.type = type;
+        if (this.model) {
+            this.scene.remove(this.model);
+            this.model = null;
+        }
+
+        switch (type) {
+            case 'fighter':
+                this.mass = 12000;
+                this.wingArea = 35;
+                this.maxThrust = 200000; // Large thrust
+                this.dragCoeff = 0.015;  // Low drag
+                this.liftCoeff = 1.0;
+                this.maxSpeed = 600;     // Very fast
+                this.stallSpeed = 70;    // Stalls easily at low speed
+                this.rollSpeedMultiplier = 3.5; // Very agile
+                this.pitchSpeedMultiplier = 2.5;
+                this.engineCount = 1;
+                break;
+            case 'boeing':
+                this.mass = 300000;
+                this.wingArea = 500;
+                this.maxThrust = 1000000;
+                this.dragCoeff = 0.035;
+                this.liftCoeff = 1.5;
+                this.maxSpeed = 260;
+                this.stallSpeed = 65;
+                this.rollSpeedMultiplier = 0.3; // Very heavy/slow
+                this.pitchSpeedMultiplier = 0.4;
+                this.engineCount = 4;
+                break;
+            case 'cessna':
+            default:
+                this.mass = 5000;
+                this.wingArea = 30;
+                this.maxThrust = 50000;
+                this.dragCoeff = 0.025;
+                this.liftCoeff = 1.2;
+                this.maxSpeed = 150;
+                this.stallSpeed = 30;
+                this.rollSpeedMultiplier = 1.0;
+                this.pitchSpeedMultiplier = 1.0;
+                this.engineCount = 1;
+                break;
+        }
+
+        this._buildModel();
     }
 
     init() {
@@ -47,7 +102,25 @@ class Aircraft {
     }
 
     _buildModel() {
+        if (this.model) {
+            this.scene.remove(this.model);
+        }
         this.model = new THREE.Group();
+
+        if (this.type === 'fighter') {
+            this._buildFighterModel();
+        } else if (this.type === 'boeing') {
+            this._buildBoeingModel();
+        } else {
+            this._buildCessnaModel();
+        }
+
+        this.model.position.copy(this.position);
+        this.model.quaternion.copy(this.quaternion);
+        this.scene.add(this.model);
+    }
+
+    _buildCessnaModel() {
 
         // Fuselage
         const fuselageGeo = new THREE.CylinderGeometry(1.2, 0.8, 12, 8);
@@ -170,10 +243,130 @@ class Aircraft {
             this.gearGroup.add(mWheel);
         }
         this.model.add(this.gearGroup);
+    }
 
-        // Scale and position
-        this.model.position.copy(this.position);
-        this.scene.add(this.model);
+    _buildFighterModel() {
+        const bodyGeo = new THREE.ConeGeometry(1, 15, 8);
+        bodyGeo.rotateX(-Math.PI / 2);
+        const bodyMat = new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        this.model.add(body);
+
+        const canopyGeo = new THREE.CapsuleGeometry(0.6, 2, 4, 8);
+        canopyGeo.rotateX(Math.PI / 2);
+        const canopyMat = new THREE.MeshPhongMaterial({ color: 0x111111, transparent: true, opacity: 0.8 });
+        const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+        canopy.position.set(0, 0.5, -2);
+        this.model.add(canopy);
+
+        const wingShape = new THREE.Shape();
+        wingShape.moveTo(0, 0);
+        wingShape.lineTo(6, 4);
+        wingShape.lineTo(6, -2);
+        wingShape.lineTo(0, -6);
+        const wingGeo = new THREE.ShapeGeometry(wingShape);
+        wingGeo.rotateX(Math.PI / 2);
+        wingGeo.rotateY(Math.PI / 2);
+        const wingMat = new THREE.MeshPhongMaterial({ color: 0x444444, side: THREE.DoubleSide });
+        const wings = new THREE.Mesh(wingGeo, wingMat);
+        wings.position.set(0, 0, 3);
+        this.model.add(wings);
+
+        const vStabGeo = new THREE.BoxGeometry(0.2, 3, 2);
+        const vStabMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        const vStab = new THREE.Mesh(vStabGeo, vStabMat);
+        vStab.position.set(0, 1.5, 6);
+        this.model.add(vStab);
+
+        const exhaustGeo = new THREE.CylinderGeometry(0.8, 0.6, 2, 8);
+        exhaustGeo.rotateX(Math.PI / 2);
+        const exhaustMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+        const exhaust = new THREE.Mesh(exhaustGeo, exhaustMat);
+        exhaust.position.set(0, 0, 7);
+        this.model.add(exhaust);
+
+        this.gearGroup = new THREE.Group();
+        const fGear = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2), new THREE.MeshPhongMaterial({ color: 0x444444 }));
+        fGear.position.set(0, -1.5, -4);
+        this.gearGroup.add(fGear);
+        for (let side = -1; side <= 1; side += 2) {
+            const mGear = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2), new THREE.MeshPhongMaterial({ color: 0x444444 }));
+            mGear.position.set(side * 2, -1.5, 4);
+            this.gearGroup.add(mGear);
+        }
+        this.model.add(this.gearGroup);
+    }
+
+    _buildBoeingModel() {
+        const bodyGeo = new THREE.CylinderGeometry(3, 3, 40, 16);
+        bodyGeo.rotateX(Math.PI / 2);
+        const bodyMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        this.model.add(body);
+
+        const noseGeo = new THREE.SphereGeometry(3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        noseGeo.rotateX(-Math.PI / 2);
+        const nose = new THREE.Mesh(noseGeo, bodyMat);
+        nose.position.z = -20;
+        this.model.add(nose);
+
+        const tailGeo = new THREE.ConeGeometry(3, 8, 16);
+        tailGeo.rotateX(Math.PI / 2);
+        const tail = new THREE.Mesh(tailGeo, bodyMat);
+        tail.position.z = 24;
+        this.model.add(tail);
+
+        const wingGeo = new THREE.BoxGeometry(45, 0.5, 12);
+        const wingMat = new THREE.MeshPhongMaterial({ color: 0xdddddd });
+        const wings = new THREE.Mesh(wingGeo, wingMat);
+        wings.position.set(0, -1, 2);
+        wings.rotation.y = -Math.PI / 10;
+        const wings2 = new THREE.Mesh(wingGeo, wingMat);
+        wings2.position.set(0, -1, 2);
+        wings2.rotation.y = Math.PI / 10;
+        this.model.add(wings);
+        this.model.add(wings2);
+
+        const hStabGeo = new THREE.BoxGeometry(18, 0.4, 5);
+        const hStab = new THREE.Mesh(hStabGeo, wingMat);
+        hStab.position.set(0, 0, 24);
+        this.model.add(hStab);
+
+        const vStabGeo = new THREE.BoxGeometry(0.4, 8, 5);
+        const vStabMat = new THREE.MeshPhongMaterial({ color: 0x2255aa });
+        const vStab = new THREE.Mesh(vStabGeo, vStabMat);
+        vStab.position.set(0, 4, 25);
+        this.model.add(vStab);
+
+        const humpGeo = new THREE.CapsuleGeometry(2.8, 10, 8, 16);
+        humpGeo.rotateX(Math.PI / 2);
+        const hump = new THREE.Mesh(humpGeo, bodyMat);
+        hump.position.set(0, 1.2, -12);
+        this.model.add(hump);
+
+        for(let side of [-1, 1]) {
+            for(let pos of [8, 16]) {
+                const engGeo = new THREE.CylinderGeometry(1, 1, 4, 12);
+                engGeo.rotateX(Math.PI / 2);
+                const engMat = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
+                const engine = new THREE.Mesh(engGeo, engMat);
+                engine.position.set(side * pos, -2.5, 4 + pos * 0.3);
+                this.model.add(engine);
+            }
+        }
+
+        this.gearGroup = new THREE.Group();
+        const fGear = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4), new THREE.MeshPhongMaterial({ color: 0x444444 }));
+        fGear.position.set(0, -3, -15);
+        this.gearGroup.add(fGear);
+        for(let side of [-1, 1]) {
+            for(let zOffset of [-1, 1]) {
+                const mGear = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4), new THREE.MeshPhongMaterial({ color: 0x444444 }));
+                mGear.position.set(side * 4, -3, 5 + zOffset * 2);
+                this.gearGroup.add(mGear);
+            }
+        }
+        this.model.add(this.gearGroup);
     }
 
     reset() {
@@ -201,9 +394,9 @@ class Aircraft {
         if (dt > 0.1) dt = 0.1; // Clamp delta
 
         // Control rates
-        const pitchRate = 1.5;
-        const rollRate = 2.5;
-        const yawRate = 0.8;
+        const pitchRate = 1.5 * this.pitchSpeedMultiplier;
+        const rollRate = 2.5 * this.rollSpeedMultiplier;
+        const yawRate = 0.8 * this.pitchSpeedMultiplier;
 
         // Apply control inputs as rotation
         const pitchDelta = input.pitch * pitchRate * dt;
