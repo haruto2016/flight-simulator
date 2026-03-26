@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Simulator</title>
+    <meta name="description" content="A browser-based 3D flight simulator inspired by Microsoft Flight Simulator, built with Three.js">
+    <link rel="stylesheet" href="style.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-content">
+            <h1 class="loading-title">FLIGHT SIMULATOR</h1>
+            <div class="loading-bar-container">
+                <div class="loading-bar" id="loading-bar"></div>
+            </div>
+            <p class="loading-text" id="loading-text">システム初期化中...</p>
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div id="start-menu" style="display:none;">
+        <div class="menu-content">
+            <h1 class="menu-title">FLIGHT SIMULATOR</h1>
+            <p class="menu-subtitle">ブラウザベース フライトシミュレーター</p>
+            <div class="menu-options">
+                <button id="btn-start" class="menu-btn">フライト開始</button>
+                <div class="settings-group">
+                    <label>天候</label>
+                    <select id="weather-select">
+                        <option value="clear">晴天</option>
+                        <option value="cloudy">曇り</option>
+                        <option value="foggy">霧</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label>時刻</label>
+                    <select id="time-select">
+                        <option value="morning">朝</option>
+                        <option value="noon" selected>昼</option>
+                        <option value="evening">夕方</option>
+                        <option value="night">夜</option>
+                    </select>
+                </div>
+            </div>
+            <div class="controls-info">
+                <h3>操作方法</h3>
+                <div class="controls-grid">
+                    <div class="control-item"><span class="key">W / S</span><span>ピッチ（機首上げ/下げ）</span></div>
+                    <div class="control-item"><span class="key">A / D</span><span>ロール（左/右傾き）</span></div>
+                    <div class="control-item"><span class="key">Q / E</span><span>ヨー（左/右旋回）</span></div>
+                    <div class="control-item"><span class="key">Shift / Ctrl</span><span>スロットル増/減</span></div>
+                    <div class="control-item"><span class="key">G</span><span>着陸脚 ON/OFF</span></div>
+                    <div class="control-item"><span class="key">F</span><span>フラップ</span></div>
+                    <div class="control-item"><span class="key">B</span><span>ブレーキ</span></div>
+                    <div class="control-item"><span class="key">V</span><span>カメラ切替</span></div>
+                    <div class="control-item"><span class="key">C</span><span>コックピット表示</span></div>
+                    <div class="control-item"><span class="key">M</span><span>ミニマップ ON/OFF</span></div>
+                    <div class="control-item"><span class="key">H</span><span>HUD ON/OFF</span></div>
+                    <div class="control-item"><span class="key">Esc</span><span>ポーズメニュー</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" style="display:none;">
+        <div id="player-count" class="player-count">🌐 オンライン: 1人</div>
+        
+        <!-- Landing Guide Message -->
+        <div id="landing-guide-message" class="landing-guide-message" style="display:none;">
+            近くに空港があります。<br>[Y]で着陸ガイド開始
+        </div>
+
+        <!-- Top Bar -->
+        <div class="hud-top-bar">
+            <div class="hud-heading">
+                <div class="heading-tape" id="heading-tape"></div>
+                <div class="heading-indicator">▼</div>
+            </div>
+        </div>
+
+        <!-- Left Panel - Speed -->
+        <div class="hud-left-panel">
+            <div class="speed-tape" id="speed-tape"></div>
+            <div class="speed-readout" id="speed-readout">0</div>
+            <div class="hud-label">KTS</div>
+        </div>
+
+        <!-- Right Panel - Altitude -->
+        <div class="hud-right-panel">
+            <div class="alt-tape" id="alt-tape"></div>
+            <div class="alt-readout" id="alt-readout">0</div>
+            <div class="hud-label">FT</div>
+        </div>
+
+        <!-- Center - Attitude Indicator -->
+        <div class="hud-center">
+            <canvas id="attitude-canvas" width="280" height="280"></canvas>
+            <div class="flight-path-marker" id="flight-path-marker">⊕</div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="hud-bottom-bar">
+            <div class="hud-info-item">
+                <span class="hud-info-label">THR</span>
+                <div class="throttle-bar-container">
+                    <div class="throttle-bar" id="throttle-bar"></div>
+                </div>
+                <span class="hud-info-value" id="throttle-value">0%</span>
+            </div>
+            <div class="hud-info-item">
+                <span class="hud-info-label">VS</span>
+                <span class="hud-info-value" id="vs-value">0</span>
+                <span class="hud-info-unit">ft/min</span>
+            </div>
+            <div class="hud-info-item">
+                <span class="hud-info-label">G</span>
+                <span class="hud-info-value" id="g-force">1.0</span>
+            </div>
+            <div class="hud-info-item" id="gear-indicator">
+                <span class="hud-info-label">GEAR</span>
+                <span class="hud-info-value gear-down">DOWN</span>
+            </div>
+            <div class="hud-info-item" id="flap-indicator">
+                <span class="hud-info-label">FLAP</span>
+                <span class="hud-info-value" id="flap-value">0°</span>
+            </div>
+            <div class="hud-info-item" id="brake-indicator">
+                <span class="hud-info-label">BRK</span>
+                <span class="hud-info-value">OFF</span>
+            </div>
+        </div>
+
+        <!-- Mini Map -->
+        <div class="hud-minimap" id="minimap-container">
+            <canvas id="minimap-canvas" width="180" height="180"></canvas>
+        </div>
+
+        <!-- Stall Warning -->
+        <div class="stall-warning" id="stall-warning" style="display:none;">
+            <span>⚠ STALL ⚠</span>
+        </div>
+
+        <!-- Overspeed Warning -->
+        <div class="overspeed-warning" id="overspeed-warning" style="display:none;">
+            <span>⚠ OVERSPEED ⚠</span>
+        </div>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" style="display:none;">
+        <div class="pause-content">
+            <h2>一時停止</h2>
+            <button id="btn-resume" class="menu-btn">再開</button>
+            <button id="btn-restart" class="menu-btn">リスタート</button>
+            <button id="btn-quit" class="menu-btn">メインメニュー</button>
+        </div>
+    </div>
+
+    <!-- Crash Screen -->
+    <div id="crash-screen" style="display:none;">
+        <div class="crash-content">
+            <h2>墜落</h2>
+            <p id="crash-message">地面に衝突しました</p>
+            <button id="btn-crash-restart" class="menu-btn">リスタート</button>
+        </div>
+    </div>
+
+    <!-- Three.js Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="sky.js?v=5"></script>
+    <script src="terrain.js?v=5"></script>
+    <script src="aircraft.js?v=5"></script>
+    <script src="controls.js?v=5"></script>
+    <script src="hud.js?v=5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="multiplayer.js?v=5"></script>
+    <script src="main.js?v=5"></script>
+</body>
+</html>
